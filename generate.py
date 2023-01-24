@@ -19,11 +19,18 @@ INPUT_DIR = 'input'                              # directory for input files (re
 OUTPUT_DIR = 'output'                            # directory for output files (relative to current directory)
 OUTPUT_PREFIX = 'bingo-card'                     # prefix for output file names (produces <PREFIX>-#.png)
 FREESPACE_IMG_NAME = 'freespace.png'             # name of freespace image file
+CARDS_PER_OUTPUT = 2                             # number of bingo cards on each output image
+CARD_GAP = 20                                    # space between adjacent cards
 
 # ! Thar be dragons below
 #########################################
-CANVAS_W = CELL_W*5
-CANVAS_H = CELL_H*5
+CARD_SIZE = 5
+CARD_W = CELL_W*CARD_SIZE
+CARD_H = CELL_H*CARD_SIZE
+CANVAS_W = CARDS_PER_OUTPUT*CARD_W + (CARDS_PER_OUTPUT-1)*CARD_GAP
+CANVAS_H = CARD_H
+CELLS_PER_CARD = CARD_SIZE * CARD_SIZE - 1
+CELLS_PER_OUTPUT = CARDS_PER_OUTPUT * CELLS_PER_CARD
 ITERATIONS = int(sys.argv[1]) if len(sys.argv) > 1 else 5
 
 OUTPUT_INDEX = None
@@ -51,8 +58,8 @@ def get_input_images():
     ]
 
     # Exit if insufficient images
-    if len(input_images) < 24:
-        print(f"Too few input images ({len(input_images)}/24), exiting...")
+    if len(input_images) < CELLS_PER_OUTPUT:
+        print(f"Too few input images ({len(input_images)}/{CELLS_PER_OUTPUT}), exiting...")
         os._exit(1)
     
     return input_images
@@ -75,6 +82,31 @@ def get_output_filename():
 
     return os.path.join(OUTPUT_DIR, f'{OUTPUT_PREFIX}-{OUTPUT_INDEX}.png')
 
+def make_card(canvas, x, y, images):
+    """Generate a card using images and paste it into canvas at x, y.
+    """
+    for i in range(0, 5):
+        for j in range(0, 5):
+            # Determine image to use
+            im = None
+            if i == j == 2:
+                # Paste free space and do not increment
+                im = Image.open(os.path.join(INPUT_DIR, FREESPACE_IMG_NAME), mode='r')
+            else:
+                # Paste next image
+                im = Image.open(next(images), mode='r')
+            
+            # Resize to fit canvas
+            im = im.resize(size=(CELL_W, CELL_H))
+
+            # Determine target paste box, paste, and close
+            x0 = x + i * CELL_W
+            y0 = y + j * CELL_H
+            x1 = x0 + CELL_W
+            y1 = y0 + CELL_H
+            canvas.paste(im, [x0, y0, x1, y1])
+            im.close()
+
 def main():
     # Create directories if not existing
     for dir in (INPUT_DIR, OUTPUT_DIR):
@@ -91,38 +123,16 @@ def main():
     for i in range(0, ITERATIONS):
         print(f"Producing bingo card #{i+1}...")
 
-        # Select 24 unique images
-        chosen_images = random.sample(input_images, 24)
+        # Select unique images
+        chosen_images = random.sample(input_images, CELLS_PER_OUTPUT)
+        images = iter(chosen_images)
 
         # Create a canvas
-        canvas = Image.new(mode='RGB', size=(CANVAS_W, CANVAS_H))
+        canvas = Image.new(mode='RGB', size=(CANVAS_W, CANVAS_H), color='white')
 
-        # Iterate through grid
-        source_image_index = 0
-        for y in range(0, 5):
-            for x in range(0, 5):
-                # Determine image to use and increment index if not free space
-                im = None
-                # print(f"Iteration x: {x}, y: {x} - source_image_index: {source_image_index}")
-                if x == y == 2:
-                    # Paste free space and do not increment
-                    im = Image.open(os.path.join(INPUT_DIR, FREESPACE_IMG_NAME), mode='r')
-                    im.resize(size=(CELL_W, CELL_H))
-                else:
-                    # Paste image at index
-                    im = Image.open(chosen_images[source_image_index], mode='r')
-                    source_image_index += 1
-                
-                # Resize to fit canvas
-                im = im.resize(size=(CELL_W, CELL_H))
-
-                # Determine target paste box, paste, and close
-                x0 = x * CELL_W
-                y0 = y * CELL_H
-                x1 = x0 + CELL_W
-                y1 = y0 + CELL_H
-                canvas.paste(im, [x0, y0, x1, y1])
-                im.close()
+        # Create cards
+        for i in range(0, CARDS_PER_OUTPUT):
+            make_card(canvas, i*(CARD_W+CARD_GAP), 0, images)
 
         # Save file
         output_filename = get_output_filename()

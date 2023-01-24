@@ -23,3 +23,5 @@
 | OUTPUT_DIR | output | Directory for output files |
 | OUTPUT_PREFIX | 190 | Prefix for output files (will be numbered according to existing prefixes) |
 | FREESPACE_IMG_NAME | 190 | File name of the free space image (relative to input dir) |
+| CARDS_PER_OUTPUT | 2 | Number of cards in each output image |
+| CARD_GAP | 20 | Width, in pixels, of the whitespace between adjacent cards |
